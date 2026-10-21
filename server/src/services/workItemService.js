@@ -643,6 +643,65 @@ export class WorkItemService {
       },
     };
   }
+
+  /**
+   * Add operational note or collaborative comment to a work item.
+   */
+  async addComment(id, commentText, user) {
+    const item = await prisma.workItem.findUnique({
+      where: { id },
+      select: { id: true, teamId: true },
+    });
+
+    if (!item) {
+      throw new NotFoundError('Work item not found');
+    }
+
+    if (!canViewTeam(user, item.teamId)) {
+      throw new ForbiddenError('You do not have permission to post comments on this team’s items');
+    }
+
+    const activity = await prisma.activity.create({
+      data: {
+        workItemId: id,
+        actorId: user.id,
+        action: 'UPDATED',
+        field: 'comment',
+        note: commentText.trim(),
+      },
+      include: {
+        actor: { select: { id: true, name: true, email: true } },
+      },
+    });
+
+    return activity;
+  }
+
+  /**
+   * Delete or cancel work item (Team Leads or Admins only).
+   */
+  async deleteWorkItem(id, user) {
+    const item = await prisma.workItem.findUnique({
+      where: { id },
+      select: { id: true, teamId: true, reference: true },
+    });
+
+    if (!item) {
+      throw new NotFoundError('Work item not found');
+    }
+
+    const role = getUserTeamRole(user, item.teamId);
+    if (role !== ROLES.ADMIN && role !== ROLES.LEAD) {
+      throw new ForbiddenError('Only Team Leads or Admins can cancel or delete a work item');
+    }
+
+    await prisma.workItem.delete({
+      where: { id },
+    });
+
+    return { reference: item.reference };
+  }
 }
 
 export const workItemService = new WorkItemService();
+

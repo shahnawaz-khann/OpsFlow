@@ -81,3 +81,22 @@ export async function getActivityTimeline(req, res, next) {
     next(err);
   }
 }
+
+export async function addComment(req, res, next) {
+  try {
+    const activity = await workItemService.addComment(req.params.id, req.body.comment, req.user);
+    return res.status(201).json({ data: activity, message: 'Note added to activity timeline' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteWorkItem(req, res, next) {
+  try {
+    const result = await workItemService.deleteWorkItem(req.params.id, req.user);
+    return res.json({ message: `Work item ${result.reference} deleted successfully` });
+  } catch (err) {
+    next(err);
+  }
+}
+

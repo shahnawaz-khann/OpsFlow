@@ -57,6 +57,37 @@ export const listWorkItemsQuerySchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
+export const commentSchema = z.object({
+  comment: z
+    .string({ required_error: 'Comment is required' })
+    .trim()
+    .min(1, 'Comment cannot be empty')
+    .max(2000, 'Comment cannot exceed 2000 characters'),
+});
+
+export const createTeamSchema = z.object({
+  name: z
+    .string({ required_error: 'Team name is required' })
+    .trim()
+    .min(2, 'Team name must be at least 2 characters')
+    .max(60, 'Team name cannot exceed 60 characters'),
+  description: z.string().trim().max(300, 'Description cannot exceed 300 characters').optional().nullable(),
+});
+
+export const updateTeamSchema = z.object({
+  name: z.string().trim().min(2, 'Team name must be at least 2 characters').max(60).optional(),
+  description: z.string().trim().max(300).optional().nullable(),
+});
+
+export const addTeamMemberSchema = z.object({
+  userId: z.string({ required_error: 'User ID is required' }).uuid('Invalid user ID format'),
+  role: z.enum(['ADMIN', 'LEAD', 'MEMBER', 'VIEWER']).default('MEMBER'),
+});
+
+export const updateTeamMemberSchema = z.object({
+  role: z.enum(['ADMIN', 'LEAD', 'MEMBER', 'VIEWER'], { required_error: 'Role is required' }),
+});
+
 export const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
@@ -65,3 +96,4 @@ export const loginSchema = z.object({
 export const devLoginSchema = z.object({
   userId: z.string().uuid('Invalid user ID'),
 });
+

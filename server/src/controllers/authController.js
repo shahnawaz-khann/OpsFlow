@@ -116,3 +116,21 @@ export async function listDemoUsers(req, res, next) {
     next(err);
   }
 }
+
+export async function listUsers(req, res, next) {
+  try {
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+      orderBy: { name: 'asc' },
+    });
+    return res.json({ users });
+  } catch (err) {
+    next(err);
+  }
+}
+
+

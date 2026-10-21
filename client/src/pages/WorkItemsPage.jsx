@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Filter, RotateCcw } from 'lucide-react';
+import { Search, Plus, Filter, RotateCcw, Download, Sparkles } from 'lucide-react';
 import { workItemsApi } from '../api/workItems.js';
 import { teamsApi } from '../api/teams.js';
 import { WorkItemTable } from '../components/work-items/WorkItemTable.jsx';
@@ -26,6 +26,7 @@ export function WorkItemsPage() {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
@@ -98,7 +99,77 @@ export function WorkItemsPage() {
     setSearchParams(new URLSearchParams());
   };
 
+  const applyPreset = (preset) => {
+    const next = new URLSearchParams();
+    if (preset === 'urgent_unassigned') {
+      next.set('priority', 'URGENT');
+      next.set('assigneeId', 'unassigned');
+    } else if (preset === 'my_work') {
+      if (user) next.set('assigneeId', user.id);
+    } else if (preset === 'blocked') {
+      next.set('status', 'BLOCKED');
+    } else if (preset === 'resolved') {
+      next.set('status', 'RESOLVED');
+    }
+    setSearchInput('');
+    setSearchParams(next);
+  };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const res = await workItemsApi.list({
+        search: search || undefined,
+        status: status || undefined,
+        priority: priority || undefined,
+        teamId: teamId || undefined,
+        assigneeId: assigneeId || undefined,
+        page: 1,
+        limit: 50,
+        sortBy,
+        sortOrder,
+      });
+      const dataToExport = res.data || items;
+      if (!dataToExport.length) {
+        alert('No operational tickets found to export.');
+        return;
+      }
+      const headers = ['Reference', 'Title', 'Status', 'Priority', 'Team', 'Assignee', 'Created By', 'Created At', 'Resolved At'];
+      const rows = dataToExport.map((it) => [
+        it.reference,
+        `"${(it.title || '').replace(/"/g, '""')}"`,
+        it.status,
+        it.priority,
+        `"${(it.team?.name || '').replace(/"/g, '""')}"`,
+        `"${(it.assignee?.name || 'Unassigned').replace(/"/g, '""')}"`,
+        `"${(it.createdBy?.name || '').replace(/"/g, '""')}"`,
+        `"${it.createdAt ? new Date(it.createdAt).toISOString() : ''}"`,
+        `"${it.resolvedAt ? new Date(it.resolvedAt).toISOString() : ''}"`,
+      ]);
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `OpsFlow_Export_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert('Export failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const hasActiveFilters = search || status || priority || teamId || assigneeId;
+
+  // Active preset detection
+  const isUrgentUnassigned = priority === 'URGENT' && assigneeId === 'unassigned';
+  const isMyWork = assigneeId === user?.id && !status && !priority;
+  const isBlocked = status === 'BLOCKED' && !priority && !assigneeId;
+  const isResolved = status === 'RESOLVED' && !priority && !assigneeId;
+  const isAllWork = !hasActiveFilters;
 
   return (
     <div className="space-y-5">
@@ -107,17 +178,93 @@ export function WorkItemsPage() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Work Items</h2>
           <p className="text-sm text-slate-500 mt-0.5">
-            Search, filter, assign, and track operational work items across teams.
+            Real-time operational queue with SLA priorities, transactional ownership, and audit trails.
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="md"
-          icon={Plus}
-          onClick={() => setCreateModalOpen(true)}
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="secondary"
+            size="md"
+            icon={Download}
+            loading={exporting}
+            onClick={handleExportCsv}
+            title="Download CSV export of active view"
+          >
+            Export CSV
+          </Button>
+          <Button
+            variant="primary"
+            size="md"
+            icon={Plus}
+            onClick={() => setCreateModalOpen(true)}
+          >
+            New Work Item
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick Preset Filter Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <span className="text-slate-400 font-semibold uppercase tracking-wider text-[10px] shrink-0">
+          Views:
+        </span>
+        <button
+          type="button"
+          onClick={() => handleResetFilters()}
+          className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 ${
+            isAllWork
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'
+          }`}
         >
-          New Work Item
-        </Button>
+          All Tickets
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset('urgent_unassigned')}
+          className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 ${
+            isUrgentUnassigned
+              ? 'bg-rose-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-rose-200 hover:text-rose-600'
+          }`}
+        >
+          ⚡ Urgent Unassigned
+        </button>
+        {user && (
+          <button
+            type="button"
+            onClick={() => applyPreset('my_work')}
+            className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 ${
+              isMyWork
+                ? 'bg-indigo-600 text-white shadow-xs'
+                : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-200 hover:text-indigo-600'
+            }`}
+          >
+            👤 Assigned to Me
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => applyPreset('blocked')}
+          className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 ${
+            isBlocked
+              ? 'bg-amber-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-amber-200 hover:text-amber-600'
+          }`}
+        >
+          ⚠️ Blocked / Escalated
+        </button>
+        <button
+          type="button"
+          onClick={() => applyPreset('resolved')}
+          className={`px-3 py-1.5 rounded-full font-medium transition-all shrink-0 ${
+            isResolved
+              ? 'bg-emerald-600 text-white shadow-xs'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-emerald-200 hover:text-emerald-600'
+          }`}
+        >
+          ✅ Resolved
+        </button>
       </div>
 
       {/* Filter and Search Bar */}
@@ -275,3 +422,4 @@ export function WorkItemsPage() {
     </div>
   );
 }
+

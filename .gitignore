@@ -38,3 +38,4 @@ coverage/
 # Database / SQLite
 *.db
 *.db-journal
+.env*

@@ -8,6 +8,7 @@ import {
   FileText,
   ShieldCheck,
   ArrowRight,
+  MessageSquare,
 } from 'lucide-react';
 import { formatDate, formatRelativeTime } from '../../utils/dates.js';
 
@@ -46,8 +47,11 @@ export function ActivityTimeline({ activities = [], loading = false, hasMore = f
     <div className="flow-root">
       <ul className="-mb-6">
         {activities.map((activity, idx) => {
-          const Icon = ACTION_ICONS[activity.action] || Clock;
-          const colorClass = ACTION_COLORS[activity.action] || 'bg-slate-100 text-slate-600';
+          const isComment = activity.field === 'comment';
+          const Icon = isComment ? MessageSquare : (ACTION_ICONS[activity.action] || Clock);
+          const colorClass = isComment
+            ? 'bg-indigo-100 text-indigo-600 border-indigo-200'
+            : (ACTION_COLORS[activity.action] || 'bg-slate-100 text-slate-600');
           const isLast = idx === activities.length - 1;
 
           return (
@@ -72,9 +76,16 @@ export function ActivityTimeline({ activities = [], loading = false, hasMore = f
                   {/* Content */}
                   <div className="min-w-0 flex-1 pt-0.5">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-slate-800">
-                        {activity.actor?.name || 'System'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold text-slate-800">
+                          {activity.actor?.name || 'System'}
+                        </p>
+                        {isComment && (
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            Team Note
+                          </span>
+                        )}
+                      </div>
                       <time
                         title={formatDate(activity.createdAt)}
                         className="text-xs text-slate-400 font-mono"
@@ -84,7 +95,7 @@ export function ActivityTimeline({ activities = [], loading = false, hasMore = f
                     </div>
 
                     {/* Change details / diff */}
-                    {activity.field && (activity.oldValue || activity.newValue) ? (
+                    {activity.field && activity.field !== 'comment' && (activity.oldValue || activity.newValue) ? (
                       <div className="mt-1 text-xs text-slate-600 flex items-center gap-1.5 flex-wrap">
                         <span className="font-medium text-slate-700 capitalize">{activity.field}:</span>
                         <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 line-through">
@@ -97,11 +108,17 @@ export function ActivityTimeline({ activities = [], loading = false, hasMore = f
                       </div>
                     ) : null}
 
-                    {/* Note */}
+                    {/* Note / Comment Body */}
                     {activity.note && (
-                      <p className="mt-1 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded p-2">
+                      <div
+                        className={`mt-1.5 text-xs rounded-md p-3 ${
+                          isComment
+                            ? 'bg-indigo-50/40 border border-indigo-100 text-slate-800 font-normal leading-relaxed'
+                            : 'bg-slate-50 border border-slate-100 text-slate-600'
+                        }`}
+                      >
                         {activity.note}
-                      </p>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -110,6 +127,7 @@ export function ActivityTimeline({ activities = [], loading = false, hasMore = f
           );
         })}
       </ul>
+
 
       {hasMore && (
         <div className="mt-4 text-center">

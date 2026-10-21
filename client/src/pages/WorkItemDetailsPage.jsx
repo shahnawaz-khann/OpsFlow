@@ -12,6 +12,9 @@ import {
   Layers,
   AlertCircle,
   Lock,
+  Trash2,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
 import { workItemsApi } from '../api/workItems.js';
 import { Button } from '../components/common/Button.jsx';
@@ -44,6 +47,12 @@ export function WorkItemDetailsPage() {
   const [transitionModalOpen, setTransitionModalOpen] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [conflictMessage, setConflictMessage] = useState('');
+
+  // Comment & Delete state
+  const [commentText, setCommentText] = useState('');
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentError, setCommentError] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Action loaders & messages
   const [actionLoading, setActionLoading] = useState(false);
@@ -85,6 +94,43 @@ export function WorkItemDetailsPage() {
   useEffect(() => {
     fetchItemAndActivity();
   }, [id, user]);
+
+  const handlePostComment = async (e) => {
+    e.preventDefault();
+    if (!commentText.trim()) return;
+    setCommentLoading(true);
+    setCommentError('');
+    try {
+      await workItemsApi.addComment(id, commentText.trim());
+      setCommentText('');
+      setActionSuccessMsg('Internal note posted to timeline');
+      const actRes = await workItemsApi.getActivity(id, { page: 1, limit: 20 });
+      setActivities(actRes.data || []);
+      setActivityPagination(actRes.pagination || { page: 1, totalPages: 1 });
+    } catch (err) {
+      setCommentError(err.message || 'Failed to post note');
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const handleDeleteTicket = async () => {
+    if (
+      !window.confirm(
+        `Are you sure you want to permanently delete ticket ${item.reference}? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      await workItemsApi.delete(id);
+      navigate('/work-items');
+    } catch (err) {
+      alert(err.message || 'Failed to delete ticket');
+      setDeleteLoading(false);
+    }
+  };
 
   const handleClaim = async () => {
     setActionLoading(true);
@@ -256,6 +302,20 @@ export function WorkItemDetailsPage() {
                   Edit
                 </Button>
               )}
+
+              {/* Delete / Cancel Ticket (Leads & Admins) */}
+              {(permissions.role === 'ADMIN' || permissions.role === 'LEAD') && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={Trash2}
+                  loading={deleteLoading}
+                  onClick={handleDeleteTicket}
+                  title="Permanently remove ticket"
+                >
+                  Delete Ticket
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -373,17 +433,52 @@ export function WorkItemDetailsPage() {
         </div>
       </div>
 
-      {/* Activity Timeline Section */}
+      {/* Activity Timeline & Internal Notes */}
       <div className="bg-white rounded-lg border border-slate-200 shadow-xs p-6">
         <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
           <div className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-indigo-600" />
-            <h3 className="text-base font-semibold text-slate-900">Activity Audit Timeline</h3>
+            <h3 className="text-base font-semibold text-slate-900">Activity & Discussion Timeline</h3>
           </div>
           <span className="text-xs text-slate-400">
             {activities.length} recorded events
           </span>
         </div>
+
+        {/* Operational Comment Input */}
+        {permissions.role && permissions.role !== 'VIEWER' && (
+          <form onSubmit={handlePostComment} className="mb-6 p-4 bg-slate-50/70 border border-slate-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <MessageSquare className="w-4 h-4 text-indigo-600" />
+              <span className="text-xs font-semibold text-slate-800">
+                Post Internal Note or Handover Remark
+              </span>
+            </div>
+            {commentError && (
+              <div className="mb-2 p-2 rounded bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                {commentError}
+              </div>
+            )}
+            <textarea
+              rows={2}
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder="Write a note visible to your team members..."
+              className="w-full text-xs p-2.5 rounded-md border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-2"
+            />
+            <div className="flex justify-end">
+              <Button
+                type="submit"
+                size="sm"
+                loading={commentLoading}
+                disabled={!commentText.trim()}
+                icon={Send}
+              >
+                Post Note
+              </Button>
+            </div>
+          </form>
+        )}
 
         <ActivityTimeline
           activities={activities}
@@ -392,6 +487,7 @@ export function WorkItemDetailsPage() {
           onLoadMore={loadMoreActivities}
         />
       </div>
+
 
       {/* Edit Form Modal */}
       <WorkItemFormModal
