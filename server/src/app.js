@@ -39,6 +39,24 @@ export function createApp() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Welcome / documentation endpoint for root /api and /
+  app.get(['/', '/api'], (req, res) => {
+    res.json({
+      name: 'OpsFlow Operational Work Management API',
+      status: 'operational',
+      version: '1.0.0',
+      documentation: 'https://github.com/shahnawaz-khann/OpsFlow',
+      endpoints: {
+        health: '/api/health',
+        auth: '/api/auth/login',
+        workItems: '/api/work-items',
+        teams: '/api/teams',
+        dashboard: '/api/dashboard/summary',
+      },
+    });
+  });
+
+
   // URL normalization: ensure route matches whether rewritten with or without /api prefix
   app.use((req, res, next) => {
     if (!req.url.startsWith('/api')) {
