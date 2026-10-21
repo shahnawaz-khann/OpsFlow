@@ -1,4 +1,9 @@
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+// In production on Vercel, always use relative '/api' unless an explicit external domain is provided
+const BASE_URL =
+  import.meta.env.PROD
+    ? (import.meta.env.VITE_API_URL && !import.meta.env.VITE_API_URL.includes('localhost') ? import.meta.env.VITE_API_URL : '/api')
+    : (import.meta.env.VITE_API_URL || '/api');
+
 
 export class ApiError extends Error {
   constructor(code, message, status, details = null) {
