@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  LEAD
+  MEMBER
+  VIEWER
+}
+
+enum Status {
+  OPEN
+  IN_PROGRESS
+  BLOCKED
+  RESOLVED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ActivityAction {
+  CREATED
+  ASSIGNED
+  CLAIMED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  UPDATED
+  APPROVAL_DECIDED
+  REOPENED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id                 String           @id @default(uuid())
+  name               String
+  email              String           @unique
+  password           String
+  memberships        TeamMembership[]
+  assignedWorkItems  WorkItem[]       @relation("Assignee")
+  createdWorkItems   WorkItem[]       @relation("Creator")
+  activities         Activity[]       @relation("Actor")
+  requestedApprovals Approval[]       @relation("ApprovalRequester")
+  decidedApprovals   Approval[]       @relation("ApprovalDecider")
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+}
+
+model Team {
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  memberships TeamMembership[]
+  workItems   WorkItem[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model TeamMembership {
+  id        String   @id @default(uuid())
+  userId    String
+  teamId    String
+  role      Role     @default(MEMBER)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, teamId])
+}
+
+model WorkItem {
+  id               String      @id @default(uuid())
+  referenceNumber  Int         @unique @default(autoincrement())
+  reference        String      @unique
+  title            String
+  description      String
+  status           Status      @default(OPEN)
+  priority         Priority    @default(MEDIUM)
+  teamId           String
+  assigneeId       String?
+  createdById      String
+  requiresApproval Boolean     @default(false)
+  version          Int         @default(1)
+  resolvedAt       DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  team        Team         @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  assignee    User?        @relation("Assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy   User         @relation("Creator", fields: [createdById], references: [id], onDelete: Restrict)
+  activities  Activity[]
+  approvals   Approval[]
+
+  @@index([teamId, status, updatedAt])
+  @@index([assigneeId, status, updatedAt])
+  @@index([priority, status, updatedAt])
+}
+
+model Activity {
+  id         String         @id @default(uuid())
+  workItemId String
+  actorId    String
+  action     ActivityAction
+  field      String?
+  oldValue   String?
+  newValue   String?
+  note       String?
+  createdAt  DateTime       @default(now())
+
+  workItem   WorkItem       @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  actor      User           @relation("Actor", fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([workItemId, createdAt])
+}
+
+model Approval {
+  id            String         @id @default(uuid())
+  workItemId    String
+  requestedById String
+  decidedById   String?
+  status        ApprovalStatus @default(PENDING)
+  decisionNote  String?
+  decidedAt     DateTime?
+  createdAt     DateTime       @default(now())
+
+  workItem      WorkItem       @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  requestedBy   User           @relation("ApprovalRequester", fields: [requestedById], references: [id], onDelete: Restrict)
+  decidedBy     User?          @relation("ApprovalDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+}
