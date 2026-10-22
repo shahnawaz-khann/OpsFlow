@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   CheckSquare,
@@ -24,19 +24,27 @@ export function Sidebar({ mobileOpen, onCloseMobile }) {
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-white border-r border-slate-200">
-      {/* Brand logo & title */}
+      {/* Brand logo & title - clickable to return to Home */}
       <div className="flex items-center justify-between h-16 px-5 border-b border-slate-100">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+        <Link
+          to="/"
+          onClick={onCloseMobile}
+          className="flex items-center gap-2.5 group transition-opacity hover:opacity-90 cursor-pointer"
+          title="Return to OpsFlow Home"
+        >
+          <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-xs group-hover:scale-105 transition-transform">
             <Layers className="w-5 h-5" />
           </div>
           <div>
-            <span className="font-bold text-base text-slate-900 tracking-tight">OpsFlow</span>
+            <span className="font-bold text-base text-slate-900 tracking-tight group-hover:text-indigo-600 transition-colors">
+              OpsFlow
+            </span>
             <span className="ml-1 text-[10px] font-semibold text-indigo-600 uppercase tracking-wider bg-indigo-50 px-1.5 py-0.5 rounded">
               Internal
             </span>
           </div>
-        </div>
+        </Link>
+
         {onCloseMobile && (
           <button
             type="button"

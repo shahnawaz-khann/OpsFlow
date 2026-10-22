@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Menu, User, LogOut, Shield } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 
@@ -16,15 +17,20 @@ export function Topbar({ onToggleMobileMenu }) {
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div>
-          <h1 className="text-base font-semibold text-slate-900 leading-tight">
+        <Link
+          to="/"
+          className="hover:opacity-85 transition-opacity group cursor-pointer"
+          title="Return to OpsFlow Home"
+        >
+          <h1 className="text-base font-semibold text-slate-900 group-hover:text-indigo-600 transition-colors leading-tight">
             OpsFlow Workspace
           </h1>
           <p className="text-xs text-slate-500 hidden sm:block">
             Internal Operations & Work Management
           </p>
-        </div>
+        </Link>
       </div>
+
 
       {/* Right: Quick Demo Persona Switcher & User Profile */}
       <div className="flex items-center gap-4">
